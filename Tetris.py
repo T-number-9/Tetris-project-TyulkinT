@@ -13,6 +13,7 @@ figures_pos = [[[-1, 3], [-1, 4], [-1, 5], [-1, 6]],    # линия
                [[-1, 4], [0, 3], [0, 4], [0, 5]]]    # T
 
 pygame.init()
+pygame.display.set_icon(pygame.image.load('data/icon.png')) # иконка
 pygame.display.set_caption('Tetris') # наименование игры
 w_size = window_weight, window_height = 700, 650 # размеры основного окна
 c_size = cup_weight, cup_height = 10, 21 # размеры игрового стакана
@@ -23,12 +24,56 @@ screen = pygame.display.set_mode(w_size) # создание основного �
 clock = pygame.time.Clock()
 FPS = 60
 delta_limit = 20
+score = 0
 delta, figure, new_fig, figure_name, new_fig_name = 0, 0, 0, 0, 0
-all_sprites = pygame.sprite.Group()
 
-# фоновая музыка
-#pygame.mixer.music.load("data/Tetris Theme.mp3")
-#pygame.mixer.music.play(-1)
+menu_sprite = pygame.sprite.Group()
+pause_sprite = pygame.sprite.Group()
+over_sprite = pygame.sprite.Group()
+
+shrift = pygame.font.SysFont('Times New Roman', 22) # шрифт основных подписей
+small_shrift = pygame.font.SysFont('Times New Roman', 15) # мелкий шрифт
+big_shrift = pygame.font.SysFont('Times New Roman', 50) # большой шрифт
+
+tetris = big_shrift.render('TETRIS', True, 'Yellow')
+tetris_rect = tetris.get_rect()
+tetris_rect.topleft = (258, 0)
+
+next_picture = shrift.render('Следующая фигура', True, 'White')
+next_rect = next_picture.get_rect()
+next_rect.topleft = (505, 220)
+
+score_picture = shrift.render('СЧЁТ', True, 'White')
+score_rect = score_picture.get_rect()
+score_rect.topleft = (571, 50)
+
+rule1 = small_shrift.render('ВВЕРХ - вращение фигуры', True, 'White')
+rule1_rect = rule1.get_rect()
+rule1_rect.topleft = (7, 200)
+
+rule2 = small_shrift.render('ВНИЗ - ускорение', True, 'White')
+rule2_rect = rule2.get_rect()
+rule2_rect.topleft = (7, 225)
+
+rule3 = small_shrift.render('ВПРАВО - движ. вправо', True, 'White')
+rule3_rect = rule3.get_rect()
+rule3_rect.topleft = (6, 250)
+
+rule4 = small_shrift.render('ВЛЕВО - движ. влево', True, 'White')
+rule4_rect = rule4.get_rect()
+rule4_rect.topleft = (7, 275)
+
+rule5 = small_shrift.render('ПРОБЕЛ - пауза', True, 'White')
+rule5_rect = rule5.get_rect()
+rule5_rect.topleft = (7, 300)
+
+rule6 = small_shrift.render('ESC - выход', True, 'White')
+rule6_rect = rule6.get_rect()
+rule6_rect.topleft = (7, 325)
+
+key_pic = shrift.render('PRESS ANY KEY TO RESTART', True, 'White')
+key_rect = key_pic.get_rect()
+key_rect.topleft = (200, 500)
 
 
 # загрузка изображений
@@ -46,6 +91,20 @@ def load_image(name, colorkey=None):
     else:
         image = image.convert_alpha()
     return image
+
+
+menu = pygame.sprite.Sprite()
+menu.image = load_image("menu.png")
+menu.rect = menu.image.get_rect()
+menu_sprite.add(menu)
+pause = pygame.sprite.Sprite()
+pause.image = load_image("pause.png")
+pause.rect = pause.image.get_rect()
+pause_sprite.add(pause)
+over = pygame.sprite.Sprite()
+over.image = load_image("over.png")
+over.rect = pause.image.get_rect()
+over_sprite.add(over)
 
 
 # загрузка фигур
@@ -75,11 +134,6 @@ figure = figure_load()
 new_fig = figure_load()
 
 
-# начальное меню и экран паузы
-class Menu:
-    pass
-
-
 class New:
     # отображение следующей фигуры
     def __init__(self):
@@ -89,10 +143,10 @@ class New:
             self.new_fig_board[i[0]+1][i[1]] = 1
         for irow in range(7):
             for icol in range(7):
-                x_left = 460 + icol * block
-                y_top = 220 + irow * block
+                x_left = 452 + icol * block
+                y_top = 260 + irow * block
                 if self.new_fig_board[irow][icol] == 1:
-                    pygame.draw.rect(screen, 'Green', (x_left + 2, y_top + 2, block - 2, block - 2))
+                    pygame.draw.rect(screen, 'White', (x_left + 2, y_top + 2, block - 2, block - 2))
 
 
 class Cup:
@@ -172,12 +226,14 @@ class Cup:
                 self.board = new_board
                 figure = new_fig
                 new_fig = figure_load()
+                self.lines_and_points()
             elif self.check_borders_y(m_figure) == 'block':
                 for i in m_figure:
                     new_board[i[0]][i[1]] = 2
                 self.board = new_board
                 figure = new_fig
                 new_fig = figure_load()
+                self.lines_and_points()
             elif self.check_borders_y(m_figure):
                 for i in m_figure:
                     new_board[i[0]][i[1]] = (new_board[i[0]][i[1]] + 1) % 2
@@ -191,31 +247,110 @@ class Cup:
 
     # проверка на собранные линии и начисление очков
     def lines_and_points(self):
-        pass
+        global game, score, score_points
+        j = 0
+        if 2 in cup.board[0]:
+            game = 'over'
+            pygame.mixer.music.load("data/game over.mp3")
+            pygame.mixer.music.play()
+        for i in range(21):
+            if cup.board[i] == [2, 2, 2, 2, 2, 2, 2, 2, 2, 2]:
+                del cup.board[i]
+                cup.board.insert(0, [0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+                j += 1
+        if j == 1:
+            score += 100
+        elif j == 2:
+            score += 300
+        elif j == 3:
+            score += 700
+        elif j == 4:
+            score += 1000
 
 
 cup = Cup(cup_weight, cup_height)
 
 
+game = 'menu'
 running = True
 while running:
-    keys = pygame.key.get_pressed()
-    delta += 1
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            running = False
-        if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_RIGHT:
-                cup.move_figure(1, 0)
-            if event.key == pygame.K_LEFT:
-                cup.move_figure(-1, 0)
-            if event.key == pygame.K_UP:
-                cup.rotate()
-    if keys[pygame.K_DOWN]:
-        delta_limit = 4
-    screen.fill((0, 0, 0))
-    cup.figure_fall(delta)
-    cup.render(screen)
-    New()
-    clock.tick(FPS)
-    pygame.display.flip()
+    if game == 'play':
+        score_points = big_shrift.render(f'{score}', True, 'White')
+        score_points_rect = score_points.get_rect()
+        score_points_rect.topleft = (540, 100)
+        pygame.mixer.music.unpause()
+        keys = pygame.key.get_pressed()
+        delta += 1
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    running = False
+                if event.key == pygame.K_RIGHT: # движение вправо
+                    cup.move_figure(1, 0)
+                if event.key == pygame.K_LEFT: # движение влево
+                    cup.move_figure(-1, 0)
+                if event.key == pygame.K_UP: # вращение фигуры
+                    cup.rotate()
+                if event.key == pygame.K_SPACE: # пауза
+                    game = 'pause'
+        if keys[pygame.K_DOWN]:
+            delta_limit = 4 # ускорение падения фигуры
+        screen.fill((0, 0, 0))
+        cup.figure_fall(delta)
+        cup.render(screen)
+        New() # следующая фигура на экране
+
+        # вывод текста на игровом экране
+        screen.blit(tetris, tetris_rect)
+        screen.blit(next_picture, next_rect)
+        screen.blit(score_picture, score_rect)
+        screen.blit(score_points, score_points_rect)
+        screen.blit(rule1, rule1_rect)
+        screen.blit(rule2, rule2_rect)
+        screen.blit(rule3, rule3_rect)
+        screen.blit(rule4, rule4_rect)
+        screen.blit(rule5, rule5_rect)
+        screen.blit(rule6, rule6_rect)
+
+        clock.tick(FPS)
+        pygame.display.flip()
+    elif game == 'pause':
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_SPACE:
+                    game = 'play' # продолжение игры
+        pygame.mixer.music.pause() # остановка музыки
+        pause_sprite.draw(screen)
+        pygame.display.flip()
+    elif game == 'menu':
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+            if event.type == pygame.KEYDOWN:
+                game = 'play' # запуск игры
+                # фоновая музыка
+                pygame.mixer.music.load("data/Tetris Theme.mp3")
+                pygame.mixer.music.play(-1)
+        menu_sprite.draw(screen)
+        pygame.display.flip()
+    elif game == 'over':
+        score_picture1 = big_shrift.render(f'СЧЁТ: {score}', True, 'White')
+        score_rect1 = score_picture.get_rect()
+        score_rect1.topleft = (270, 400)
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+            if event.type == pygame.KEYDOWN:
+                game = 'play' # запуск игры
+                pygame.mixer.music.load("data/Tetris Theme.mp3")
+                pygame.mixer.music.play(-1)
+                cup.board = [[0] * cup_weight for _ in range(cup_height)]
+                score = 0
+        over_sprite.draw(screen)
+        screen.blit(score_picture1, score_rect1)
+        screen.blit(key_pic, key_rect)
+        pygame.display.flip()
