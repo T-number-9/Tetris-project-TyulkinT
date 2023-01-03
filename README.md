@@ -17,4 +17,5 @@ PyGame project
 
 /Звук: Основной: Tetris Theme.mp3 ('Коробейники')
 
+
        Проигрыш: game over.mp3
