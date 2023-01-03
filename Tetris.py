@@ -71,9 +71,17 @@ rule6 = small_shrift.render('ESC - выход', True, 'White')
 rule6_rect = rule6.get_rect()
 rule6_rect.topleft = (7, 325)
 
+rule7 = small_shrift.render('1 - вкл/выкл музыки', True, 'White')
+rule7_rect = rule7.get_rect()
+rule7_rect.topleft = (7, 350)
+
 key_pic = shrift.render('PRESS ANY KEY TO RESTART', True, 'White')
 key_rect = key_pic.get_rect()
 key_rect.topleft = (200, 500)
+
+record_pic = shrift.render('РЕКОРД', True, 'White')
+record_rect = record_pic.get_rect()
+record_rect.topleft = (550, 400)
 
 
 # загрузка изображений
@@ -93,6 +101,7 @@ def load_image(name, colorkey=None):
     return image
 
 
+# добавление рисунков
 menu = pygame.sprite.Sprite()
 menu.image = load_image("menu.png")
 menu.rect = menu.image.get_rect()
@@ -132,6 +141,16 @@ def figure_load():
 
 figure = figure_load()
 new_fig = figure_load()
+
+
+def take_record():
+    try:
+        with open('record') as file:
+            return file.readline()
+    except FileNotFoundError:
+        with open('record', 'w') as file:
+            file.write('0')
+            return '0'
 
 
 class New:
@@ -179,18 +198,18 @@ class Cup:
     def check_borders_x(self, c_figure):
         for i in c_figure:
             if i[1] + 1 > 10 or i[1] - 1 < -1:
-                return 'border'
+                return 'border' # столкновение с бортами
             if i[1] + 1 < 10 and (self.board[i[0]][i[1] + 1] == 2 or self.board[i[0]][i[1] - 1] == 2):
-                return 'block'
+                return 'block' # столкновение с блоками
         return True
 
     # проверка на пересечение с границами по y
     def check_borders_y(self, c_figure):
         for i in c_figure:
             if i[0] + 1 > 20:
-                return 'border'
+                return 'border' # столкновение с бортами
             if i[0] + 1 <= 19 and self.board[i[0] + 1][i[1]] == 2:
-                return 'block'
+                return 'block' # столкновение с блоками
         return True
 
     # движение фигуры по оси x
@@ -203,7 +222,7 @@ class Cup:
             i[1] += dx
             i[0] += dy
         if self.check_borders_x(m_figure) == 'border' or self.check_borders_x(m_figure) == 'block':
-            pass
+            pass # при столокновении не двигаем
         else:
             for i in m_figure:
                 new_board[i[0]][i[1]] = (new_board[i[0]][i[1]] + 1) % 2
@@ -222,14 +241,14 @@ class Cup:
                 i[0] += 1
             if self.check_borders_y(m_figure) == 'border':
                 for i in m_figure:
-                    new_board[i[0]-1][i[1]] = 2
+                    new_board[i[0]-1][i[1]] = 2 # при столкновении перекрашиваем
                 self.board = new_board
                 figure = new_fig
                 new_fig = figure_load()
                 self.lines_and_points()
             elif self.check_borders_y(m_figure) == 'block':
                 for i in m_figure:
-                    new_board[i[0]][i[1]] = 2
+                    new_board[i[0]][i[1]] = 2 # при столкновении перекрашиваем
                 self.board = new_board
                 figure = new_fig
                 new_fig = figure_load()
@@ -241,22 +260,240 @@ class Cup:
                 self.board = new_board
         delta_limit = 20
 
+    # проверка возможности поворота фигуры
+    def rotate_check(self, r_figure):
+        for elem in r_figure:
+            if (elem[1] < 0) or (elem[1] > 9) or (elem[0] < 0) or (self.board[elem[0] + 1][elem[1]] == 2):
+                return False
+        return True
+
     # вращение фигуры
     def rotate(self):
-        pass
+        global figure_name, figure
+        new_board = deepcopy(self.board)
+        r_figure = deepcopy(figure)
+        if figure_name == 'линия':
+            for i in r_figure:
+                new_board[i[0]][i[1]] = 0
+            r_figure[0][1] += 1
+            r_figure[2][1] -= 1
+            r_figure[3][1] -= 2
+            r_figure[0][0] += 1
+            r_figure[2][0] -= 1
+            r_figure[3][0] -= 2
+            if self.rotate_check(r_figure):
+                self.board = new_board
+                figure = r_figure
+                figure_name = 'столб'
+        elif figure_name == 'столб':
+            for i in r_figure:
+                new_board[i[0]][i[1]] = 0
+            r_figure[0][1] -= 1
+            r_figure[2][1] += 1
+            r_figure[3][1] += 2
+            r_figure[0][0] -= 1
+            r_figure[2][0] += 1
+            r_figure[3][0] += 2
+            if self.rotate_check(r_figure):
+                self.board = new_board
+                figure = r_figure
+                figure_name = 'линия'
+        elif figure_name == 'S':
+            for i in r_figure:
+                new_board[i[0]][i[1]] = 0
+            r_figure[0][1] += 2
+            r_figure[1][1] += 1
+            r_figure[3][1] -= 1
+            r_figure[1][0] -= 1
+            r_figure[3][0] -= 1
+            if self.rotate_check(r_figure):
+                self.board = new_board
+                figure = r_figure
+                figure_name = 'С'
+        elif figure_name == 'С':
+            for i in r_figure:
+                new_board[i[0]][i[1]] = 0
+            r_figure[0][1] -= 2
+            r_figure[1][1] -= 1
+            r_figure[3][1] += 1
+            r_figure[1][0] += 1
+            r_figure[3][0] += 1
+            if self.rotate_check(r_figure):
+                self.board = new_board
+                figure = r_figure
+                figure_name = 'S'
+        elif figure_name == 'Z':
+            for i in r_figure:
+                new_board[i[0]][i[1]] = 0
+            r_figure[0][1] += 1
+            r_figure[2][1] -= 1
+            r_figure[3][1] -= 2
+            r_figure[0][0] -= 1
+            r_figure[2][0] -= 1
+            if self.rotate_check(r_figure):
+                self.board = new_board
+                figure = r_figure
+                figure_name = 'З'
+        elif figure_name == 'З':
+            for i in r_figure:
+                new_board[i[0]][i[1]] = 0
+            r_figure[0][1] -= 1
+            r_figure[2][1] += 1
+            r_figure[3][1] += 2
+            r_figure[0][0] += 1
+            r_figure[2][0] += 1
+            if self.rotate_check(r_figure):
+                self.board = new_board
+                figure = r_figure
+                figure_name = 'Z'
+        elif figure_name == 'J':
+            for i in r_figure:
+                new_board[i[0]][i[1]] = 0
+            r_figure[0][0] += 2
+            r_figure[0][1] += 2
+            r_figure[3][1] += 2
+            if self.rotate_check(r_figure):
+                self.board = new_board
+                figure = r_figure
+                figure_name = 'J1'
+        elif figure_name == 'J1':
+            for i in r_figure:
+                new_board[i[0]][i[1]] = 0
+            r_figure[0][0] += 2
+            r_figure[0][1] -= 2
+            r_figure[1][0] += 2
+            if self.rotate_check(r_figure):
+                self.board = new_board
+                figure = r_figure
+                figure_name = 'J2'
+        elif figure_name == 'J2':
+            for i in r_figure:
+                new_board[i[0]][i[1]] = 0
+            r_figure[0][0] -= 2
+            r_figure[0][1] -= 2
+            r_figure[3][1] -= 2
+            if self.rotate_check(r_figure):
+                self.board = new_board
+                figure = r_figure
+                figure_name = 'J3'
+        elif figure_name == 'J3':
+            for i in r_figure:
+                new_board[i[0]][i[1]] = 0
+            r_figure[0][0] -= 2
+            r_figure[0][1] += 2
+            r_figure[1][0] -= 2
+            if self.rotate_check(r_figure):
+                self.board = new_board
+                figure = r_figure
+                figure_name = 'J'
+        elif figure_name == 'L':
+            for i in r_figure:
+                new_board[i[0]][i[1]] = 0
+            r_figure[0][0] += 2
+            r_figure[0][1] += 2
+            r_figure[1][0] += 2
+            if self.rotate_check(r_figure):
+                self.board = new_board
+                figure = r_figure
+                figure_name = 'L1'
+        elif figure_name == 'L1':
+            for i in r_figure:
+                new_board[i[0]][i[1]] = 0
+            r_figure[0][0] += 2
+            r_figure[0][1] -= 2
+            r_figure[3][1] -= 2
+            if self.rotate_check(r_figure):
+                self.board = new_board
+                figure = r_figure
+                figure_name = 'L2'
+        elif figure_name == 'L2':
+            for i in r_figure:
+                new_board[i[0]][i[1]] = 0
+            r_figure[0][0] -= 2
+            r_figure[0][1] -= 2
+            r_figure[1][0] -= 2
+            if self.rotate_check(r_figure):
+                self.board = new_board
+                figure = r_figure
+                figure_name = 'L3'
+        elif figure_name == 'L3':
+            for i in r_figure:
+                new_board[i[0]][i[1]] = 0
+            r_figure[0][0] -= 2
+            r_figure[0][1] += 2
+            r_figure[3][1] += 2
+            if self.rotate_check(r_figure):
+                self.board = new_board
+                figure = r_figure
+                figure_name = 'L'
+        elif figure_name == 'T':
+            for i in r_figure:
+                new_board[i[0]][i[1]] = 0
+            r_figure[0][0] += 1
+            r_figure[0][1] += 1
+            r_figure[1][0] -= 1
+            r_figure[1][1] += 1
+            r_figure[3][0] += 1
+            r_figure[3][1] -= 1
+            if self.rotate_check(r_figure):
+                self.board = new_board
+                figure = r_figure
+                figure_name = 'T1'
+        elif figure_name == 'T1':
+            for i in r_figure:
+                new_board[i[0]][i[1]] = 0
+            r_figure[0][0] += 1
+            r_figure[0][1] -= 1
+            r_figure[1][0] += 1
+            r_figure[1][1] += 1
+            r_figure[3][0] -= 1
+            r_figure[3][1] -= 1
+            if self.rotate_check(r_figure):
+                self.board = new_board
+                figure = r_figure
+                figure_name = 'T2'
+        elif figure_name == 'T2':
+            for i in r_figure:
+                new_board[i[0]][i[1]] = 0
+            r_figure[0][0] -= 1
+            r_figure[0][1] -= 1
+            r_figure[1][0] += 1
+            r_figure[1][1] -= 1
+            r_figure[3][0] -= 1
+            r_figure[3][1] += 1
+            if self.rotate_check(r_figure):
+                self.board = new_board
+                figure = r_figure
+                figure_name = 'T3'
+        elif figure_name == 'T3':
+            for i in r_figure:
+                new_board[i[0]][i[1]] = 0
+            r_figure[0][0] -= 1
+            r_figure[0][1] += 1
+            r_figure[1][0] -= 1
+            r_figure[1][1] -= 1
+            r_figure[3][0] += 1
+            r_figure[3][1] += 1
+            if self.rotate_check(r_figure):
+                self.board = new_board
+                figure = r_figure
+                figure_name = 'T'
 
     # проверка на собранные линии и начисление очков
     def lines_and_points(self):
         global game, score, score_points
         j = 0
-        if 2 in cup.board[0]:
+        if 2 in cup.board[0]: # если стакан заполнен - проигрыш
             game = 'over'
             pygame.mixer.music.load("data/game over.mp3")
             pygame.mixer.music.play()
+            if score > int(record):
+                with open('record', 'w') as file:
+                    file.write(str(score))
         for i in range(21):
-            if cup.board[i] == [2, 2, 2, 2, 2, 2, 2, 2, 2, 2]:
-                del cup.board[i]
-                cup.board.insert(0, [0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+            if cup.board[i] == [2, 2, 2, 2, 2, 2, 2, 2, 2, 2]: # если линия заполнена -
+                del cup.board[i] # - удаляем её
+                cup.board.insert(0, [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) # добавляем сверху новую
                 j += 1
         if j == 1:
             score += 100
@@ -270,10 +507,11 @@ class Cup:
 
 cup = Cup(cup_weight, cup_height)
 
-
+music = True
 game = 'menu'
 running = True
 while running:
+    record = take_record()
     if game == 'play':
         score_points = big_shrift.render(f'{score}', True, 'White')
         score_points_rect = score_points.get_rect()
@@ -285,7 +523,7 @@ while running:
             if event.type == pygame.QUIT:
                 running = False
             if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_ESCAPE:
+                if event.key == pygame.K_ESCAPE: # закрытие программы
                     running = False
                 if event.key == pygame.K_RIGHT: # движение вправо
                     cup.move_figure(1, 0)
@@ -295,6 +533,13 @@ while running:
                     cup.rotate()
                 if event.key == pygame.K_SPACE: # пауза
                     game = 'pause'
+                if event.key == pygame.K_1: # вкл/выкл звука
+                    if music:
+                        pygame.mixer.music.set_volume(0)
+                        music = False
+                    else:
+                        pygame.mixer.music.set_volume(1)
+                        music = True
         if keys[pygame.K_DOWN]:
             delta_limit = 4 # ускорение падения фигуры
         screen.fill((0, 0, 0))
@@ -313,6 +558,13 @@ while running:
         screen.blit(rule4, rule4_rect)
         screen.blit(rule5, rule5_rect)
         screen.blit(rule6, rule6_rect)
+        screen.blit(rule7, rule7_rect)
+        screen.blit(record_pic, record_rect)
+
+        record_pic1 = big_shrift.render(record, True, 'White')
+        record_rect1 = record_pic1.get_rect()
+        record_rect1.topleft = (550, 450)
+        screen.blit(record_pic1, record_rect1)
 
         clock.tick(FPS)
         pygame.display.flip()
@@ -323,6 +575,8 @@ while running:
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_SPACE:
                     game = 'play' # продолжение игры
+                if event.key == pygame.K_ESCAPE:
+                    running = False
         pygame.mixer.music.pause() # остановка музыки
         pause_sprite.draw(screen)
         pygame.display.flip()
